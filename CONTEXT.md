@@ -1,70 +1,110 @@
-# Wardrobe App — Project Context
+# HANA App — Project Context (PRD)
 
-## Goal
-Smart wardrobe planner app untuk personal use.
+## 1. Product Context
 
-## Tech Stack
-- Next.js + TypeScript
-- Supabase (auth, database, storage)
-- Tailwind CSS + Shadcn UI
-- Remove.bg API (AI remove background)
-- OpenWeather API (Phase 2)
-- Design style: Threads-inspired dark UI
+Product: HANA (Hasab wa Nasab)
+Feature: Family Tree Application
 
-## Phase 1 (Current)
-- Google OAuth via Supabase
-- Upload pakaian + AI remove background
-- Catalog view (grid)
-- Filter by kategori & warna
-- Detail item pakaian
-- Hapus item
+Problem
+Users cannot remember all their family and the relations.
 
-## Phase 2
-- Weekly planning (7 hari)
-- Weather forecast integration
-- Cost per wear
-- Laundry state management
-- Item state: Clean → Worn → Laundry → Clean
+Goal
+Provide a clear family tree that easy to manage.
 
----
+## 2. User Types
 
-## Database
+### Family member
+Person want to close to his family.
 
-Run this SQL in Supabase SQL Editor:
+## 3. User Flow
 
-```sql
--- Table
-CREATE TABLE wardrobe_items (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  name TEXT NOT NULL,
-  category TEXT NOT NULL,
-  color TEXT NOT NULL,
-  image_url TEXT NOT NULL,
-  original_image_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+1. User create, read, update & delete family tree
+2. Zoom in zoom out family tree
+3. View details node
 
--- RLS
-ALTER TABLE wardrobe_items ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users manage own items"
-  ON wardrobe_items FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+### User Stories
 
--- Storage bucket
-INSERT INTO storage.buckets (id, name, public) VALUES ('wardrobe', 'wardrobe', true);
+User want to create, read, update & delete family tree.
 
--- Storage policies
-CREATE POLICY "Users upload own files"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'wardrobe' AND auth.uid()::text = (storage.foldername(name))[1]);
+## 4. Screens
 
-CREATE POLICY "Public read wardrobe"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'wardrobe');
+1. Family tree diagram
+2. Person details view mode
+3. Person form for create and update
 
-CREATE POLICY "Users delete own files"
-  ON storage.objects FOR DELETE
-  USING (bucket_id = 'wardrobe' AND auth.uid()::text = (storage.foldername(name))[1]);
-```
+## 5. Screen Requirements
+
+Components
+- Family tree diagram CANVAS
+- Person details view mode
+- Form
+
+States
+- View
+- Create
+- Update
+- Delete
+
+### User interaction and design
+
+./screen_designs.png
+
+## 6. Data Model (Very Important for AI)
+
+#### Entity:
+persons
+#### Fields:
+id: UUID
+name
+nickname
+honorific
+gender
+birth_date
+is_dead
+death_date
+photo_url
+additional_information
+created_at: datetime
+updated_at: datetime
+
+#### Entity: 
+relationships
+#### Fields:
+id: UUID
+person1_id (uuid)
+person2_id (uuid)
+relationship_type
+created_at: datetime
+updated_at: datetime
+
+## 7. Business Rules
+
+Rules
+
+1. Create person
+
+2. Update person
+
+3. Delete person
+
+## 8. Edge Cases
+
+- Missing photo
+- Duplicate person
+
+## 9. Success Metrics
+
+Add node of person
+Upload profile image from gallery
+Update node of person
+Delete node of person
+
+## 10. Tech Constraints (Optional)
+
+Stack
+
+Diagram: React-Flow.js
+Frontend: React / Next.js
+Backend: Supabase
+Database: Postgres
+Storage: Supabase (profile image)

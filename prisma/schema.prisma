@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Person {
+  id                     String         @id @default(uuid())
+  name                   String
+  nickname               String?
+  honorific              String?
+  gender                 String?
+  birth_date             DateTime?      @db.Date
+  is_dead                Boolean        @default(false)
+  death_date             DateTime?      @db.Date
+  photo_url              String?
+  additional_information String?
+  order_index            Int?           @default(0)
+  created_at             DateTime       @default(now())
+  updated_at             DateTime       @updatedAt
+  relationships_as_p1    Relationship[] @relation("Person1Relations")
+  relationships_as_p2    Relationship[] @relation("Person2Relations")
+
+  @@map("persons")
+}
+
+model Relationship {
+  id                String           @id @default(uuid())
+  person1_id        String
+  person2_id        String
+  relationship_type RelationshipType
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+  person1           Person           @relation("Person1Relations", fields: [person1_id], references: [id], onDelete: Cascade)
+  person2           Person           @relation("Person2Relations", fields: [person2_id], references: [id], onDelete: Cascade)
+
+  @@map("relationships")
+}
+
+enum RelationshipType {
+  PARENT_CHILD
+  SPOUSE
+  SIBLING
+}
