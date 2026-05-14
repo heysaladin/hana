@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json(relationships);
   } catch (error) {
     console.error('[GET /api/relationships]', error);
-    return NextResponse.json({ error: 'Failed to fetch relationships' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch relationships', detail: String(error) }, { status: 500 });
   }
 }
 
