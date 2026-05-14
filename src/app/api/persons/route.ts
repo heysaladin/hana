@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
         death_date: body.death_date ? new Date(body.death_date) : null,
         photo_url: body.photo_url || null,
         additional_information: body.additional_information || null,
+        address_short: body.address_short || null,
+        age: body.age != null && body.age !== '' ? Number(body.age) : null,
         order_index: body.order_index != null ? Number(body.order_index) : 0,
       },
     });

@@ -2,6 +2,16 @@
 import Image from 'next/image';
 import { Person, Relationship } from '@/types';
 
+function calcAgeFromDate(birthDateStr: string): number | null {
+  const birth = new Date(birthDateStr);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age >= 0 ? age : null;
+}
+
 const REL_LABEL: Record<string, string> = {
   PARENT_CHILD: 'Parent / Child',
   SPOUSE: 'Spouse',
@@ -60,11 +70,15 @@ export default function PersonDetails({
           </div>
 
           {/* Info */}
-          {(person.gender || person.birth_date || person.additional_information) && (
+          {(person.gender || person.birth_date || person.age || person.address_short || person.additional_information) && (
             <div className="mb-5 space-y-1.5 text-sm text-gray-600 bg-gray-50 rounded-xl px-4 py-3">
               {person.gender && <p><span className="font-medium">Gender:</span> {person.gender === 'MALE' ? 'Male' : 'Female'}</p>}
               {person.birth_date && <p><span className="font-medium">Born:</span> {new Date(person.birth_date).toLocaleDateString()}</p>}
               {person.is_dead && person.death_date && <p><span className="font-medium">Died:</span> {new Date(person.death_date).toLocaleDateString()}</p>}
+              {(person.birth_date || person.age) && (
+                <p><span className="font-medium">Age:</span> {person.birth_date ? calcAgeFromDate(person.birth_date) : person.age}</p>
+              )}
+              {person.address_short && <p><span className="font-medium">Address:</span> {person.address_short}</p>}
               {person.additional_information && <p className="pt-1 text-gray-500 italic">{person.additional_information}</p>}
             </div>
           )}

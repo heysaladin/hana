@@ -13,6 +13,8 @@ export interface Person {
   death_date: string | null;
   photo_url: string | null;
   additional_information: string | null;
+  address_short: string | null;
+  age: number | null;
   order_index: number | null;
   created_at: string;
   updated_at: string;
@@ -37,5 +39,7 @@ export interface PersonFormData {
   death_date?: string;
   photo_url?: string;
   additional_information?: string;
+  address_short?: string;
+  age?: number;
   order_index?: number;
 }

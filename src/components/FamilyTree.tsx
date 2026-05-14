@@ -1,39 +1,10 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import {
-  ReactFlow,
-  ReactFlowProvider,
-  Background,
-  Controls,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  Edge,
-  Node,
-  NodeTypes,
-  EdgeTypes,
-  BackgroundVariant,
-  Connection,
-  useReactFlow,
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import PersonNode from './PersonNode';
-import MarriageNode from './nodes/MarriageNode';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { buildFamilyLayout } from '@/lib/familyLayout';
+import FamilyTreeCanvas from './FamilyTreeCanvas';
 import PersonDetails from './PersonDetails';
 import PersonForm from './PersonForm';
-import CoupleEdge, { CoupleEdgeType } from './edges/CoupleEdge';
-import FamilyEdge, { FamilyEdgeType } from './edges/FamilyEdge';
-import ArcEdge, { ArcEdgeType } from './edges/ArcEdge';
-import { buildFamilyLayout } from '@/lib/familyLayout';
-import { useAutoLayout } from '@/hooks/useAutoLayout';
 import { Person, Relationship, PersonFormData, RelationshipType } from '@/types';
-
-const nodeTypes: NodeTypes = { person: PersonNode, marriage: MarriageNode };
-const edgeTypes: EdgeTypes = {
-  [CoupleEdgeType]: CoupleEdge,   // 'spouseEdge'
-  [FamilyEdgeType]: FamilyEdge,   // 'familyEdge'
-  [ArcEdgeType]:    ArcEdge,      // 'arcEdge'
-};
 
 const RELATION_OPTIONS: { value: RelationshipType; label: string; desc: string; color: string }[] = [
   { value: 'PARENT_CHILD', label: 'Parent → Child', desc: 'First selected is the parent', color: '#6b7280' },
@@ -53,7 +24,7 @@ function RelPickerModal({
         <h2 className="text-lg font-semibold mb-1">{title}</h2>
         <p className="text-sm text-gray-400 mb-5">{subtitle}</p>
         <div className="space-y-2 mb-4">
-          {RELATION_OPTIONS.map((opt) => (
+          {RELATION_OPTIONS.map(opt => (
             <button key={opt.value} onClick={() => onConfirm(opt.value)}
               className="w-full flex items-center gap-4 px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-colors text-left">
               <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: opt.color }} />
@@ -73,49 +44,27 @@ function RelPickerModal({
   );
 }
 
-function FamilyTreeInner() {
-  const { screenToFlowPosition } = useReactFlow();
-
-  const [persons, setPersons] = useState<Person[]>([]);
+export default function FamilyTree() {
+  const [persons,       setPersons]       = useState<Person[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [panel, setPanel] = useState<'none' | 'details' | 'form-create' | 'form-edit'>('none');
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
+  const [selectedId,    setSelectedId]    = useState<string | null>(null);
+  const [panel,         setPanel]         = useState<'none' | 'details' | 'form-create' | 'form-edit'>('none');
+  const [loading,       setLoading]       = useState(true);
+  const [searchQuery,   setSearchQuery]   = useState('');
+  const [showSearch,    setShowSearch]    = useState(false);
 
-  // Button connect mode
-  const [connectMode, setConnectMode] = useState(false);
+  // Connect mode
+  const [connectMode,     setConnectMode]     = useState(false);
   const [connectSourceId, setConnectSourceId] = useState<string | null>(null);
   const [connectTargetId, setConnectTargetId] = useState<string | null>(null);
-  const [showRelPicker, setShowRelPicker] = useState(false);
+  const [showRelPicker,   setShowRelPicker]   = useState(false);
 
-  // Selected edge (connection line)
+  // Selected edge (relationship)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
-
-
-  // Drag handle → existing node
-  const [pendingEdge, setPendingEdge] = useState<{ p1: string; p2: string } | null>(null);
-
-  // Drag handle → empty space → create person
-  const [pendingDrop, setPendingDrop] = useState<{
-    sourceId: string;
-    position: { x: number; y: number };
-    relType: RelationshipType | null;
-  } | null>(null);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-
-  useAutoLayout(nodes, edges);
-
-  const selectedPerson    = persons.find(p => p.id === selectedId);
-  const connectSrc        = persons.find(p => p.id === connectSourceId);
-  const connectTgt        = persons.find(p => p.id === connectTargetId);
-  const pendingEdgeP1     = persons.find(p => p.id === pendingEdge?.p1);
-  const pendingEdgeP2     = persons.find(p => p.id === pendingEdge?.p2);
-  const pendingDropSrc    = persons.find(p => p.id === pendingDrop?.sourceId);
+  const selectedPerson = persons.find(p => p.id === selectedId);
+  const connectSrc     = persons.find(p => p.id === connectSourceId);
+  const connectTgt     = persons.find(p => p.id === connectTargetId);
 
   const fetchData = useCallback(async () => {
     try {
@@ -132,68 +81,52 @@ function FamilyTreeInner() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    const filtered = searchQuery
-      ? persons.filter(p =>
-          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.nickname?.toLowerCase().includes(searchQuery.toLowerCase()))
-      : persons;
-
-    const { nodes: n, edges: e } = buildFamilyLayout(
-      filtered, relationships,
-      selectedId ?? undefined,
-      connectSourceId ?? undefined,
-      selectedEdgeId ?? undefined,
+  const filteredPersons = useMemo(() => {
+    if (!searchQuery) return persons;
+    const q = searchQuery.toLowerCase();
+    return persons.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.nickname?.toLowerCase().includes(q),
     );
-    setNodes(n);
-    setEdges(e);
-  }, [persons, relationships, selectedId, connectSourceId, searchQuery, selectedEdgeId, setNodes, setEdges]);
+  }, [persons, searchQuery]);
 
-  const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    if (node.type === 'marriage') return;   // marriage nodes are not interactive
+  const { nodes, edges } = useMemo(() =>
+    buildFamilyLayout(filteredPersons, relationships, selectedId ?? undefined, connectSourceId ?? undefined, selectedEdgeId ?? undefined),
+    [filteredPersons, relationships, selectedId, connectSourceId, selectedEdgeId],
+  );
+
+  const handleNodeClick = useCallback((id: string) => {
     setSelectedEdgeId(null);
     if (connectMode) {
-      if (!connectSourceId || node.id === connectSourceId) return;
-      setConnectTargetId(node.id);
+      if (!connectSourceId || id === connectSourceId) return;
+      setConnectTargetId(id);
       setShowRelPicker(true);
       return;
     }
-    setSelectedId(prev => prev === node.id ? null : node.id);
+    setSelectedId(prev => prev === id ? null : id);
     setPanel('none');
   }, [connectMode, connectSourceId]);
 
-  const handleEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
-    // Spouse edges come in pairs (_p1 / _p2); strip suffix to get the real rel id
-    const relId = edge.id.replace(/_p[12]$/, '');
+  const handleEdgeClick = useCallback((relId: string) => {
     setSelectedId(null);
     setPanel('none');
     setSelectedEdgeId(prev => prev === relId ? null : relId);
   }, []);
 
   const handlePaneClick = useCallback(() => {
-    if (connectMode || pendingEdge || pendingDrop) return;
+    if (connectMode) return;
     setSelectedId(null);
     setSelectedEdgeId(null);
     setPanel('none');
-  }, [connectMode, pendingEdge, pendingDrop]);
+  }, [connectMode]);
 
-  const onConnect = useCallback((connection: Connection) => {
-    const src = connection.source ?? '';
-    const tgt = connection.target ?? '';
-    if (src.startsWith('M_') || tgt.startsWith('M_')) return;
-    if (src && tgt && src !== tgt) setPendingEdge({ p1: src, p2: tgt });
-  }, []);
-
-  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, connectionState: any) => {
-    if (connectionState?.fromNode?.type === 'marriage') return;
-    if (connectionState?.isValid === false && connectionState?.fromNode) {
-      const { clientX, clientY } = 'changedTouches' in event
-        ? (event as TouchEvent).changedTouches[0]
-        : (event as MouseEvent);
-      const position = screenToFlowPosition({ x: clientX, y: clientY });
-      setPendingDrop({ sourceId: connectionState.fromNode.id, position, relType: null });
-    }
-  }, [screenToFlowPosition]);
+  const postRelationship = async (p1: string, p2: string, type: RelationshipType) => {
+    await fetch('/api/relationships', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ person1_id: p1, person2_id: p2, relationship_type: type }),
+    });
+  };
 
   const enterConnectMode = () => {
     if (!selectedId) return;
@@ -210,45 +143,11 @@ function FamilyTreeInner() {
     setShowRelPicker(false);
   };
 
-  const postRelationship = async (p1: string, p2: string, type: RelationshipType) => {
-    await fetch('/api/relationships', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ person1_id: p1, person2_id: p2, relationship_type: type }),
-    });
-  };
-
   const confirmConnect = async (type: RelationshipType) => {
     if (!connectSourceId || !connectTargetId) return;
     await postRelationship(connectSourceId, connectTargetId, type);
     cancelConnectMode();
     await fetchData();
-  };
-
-  const handlePendingEdgeConfirm = async (type: RelationshipType) => {
-    if (!pendingEdge) return;
-    await postRelationship(pendingEdge.p1, pendingEdge.p2, type);
-    setPendingEdge(null);
-    await fetchData();
-  };
-
-  const handleDropRelType = (type: RelationshipType) => {
-    setPendingDrop(prev => prev ? { ...prev, relType: type } : null);
-  };
-
-  const handleCreateFromDrop = async (data: PersonFormData) => {
-    if (!pendingDrop?.relType) return;
-    const res = await fetch('/api/persons', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) {
-      const newPerson = await res.json();
-      await postRelationship(pendingDrop.sourceId, newPerson.id, pendingDrop.relType);
-      setPendingDrop(null);
-      await fetchData();
-    }
   };
 
   const handleDeleteRelationship = async (id: string) => {
@@ -332,7 +231,7 @@ function FamilyTreeInner() {
         </div>
       )}
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative overflow-hidden">
         {persons.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-8">
             <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
@@ -348,36 +247,13 @@ function FamilyTreeInner() {
             </button>
           </div>
         ) : (
-          <ReactFlow
+          <FamilyTreeCanvas
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
             onNodeClick={handleNodeClick}
-            onPaneClick={handlePaneClick}
             onEdgeClick={handleEdgeClick}
-            onConnect={onConnect}
-            onConnectEnd={onConnectEnd}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            minZoom={0.1}
-            maxZoom={2}
-            nodesDraggable={false}
-            nodesConnectable={true}
-            connectOnClick={false}
-            elementsSelectable={true}
-            elevateEdgesOnSelect={true}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e5e7eb" />
-            <Controls showInteractive={false} className="!shadow-none !border !border-gray-200 !rounded-xl overflow-hidden" />
-            <MiniMap
-              nodeColor={(node: any) => node.data?.familyColor ?? '#6b7280'}
-              nodeStrokeWidth={2}
-              pannable
-              zoomable
-              className="!rounded-xl !shadow-sm !border !border-gray-200"
-            />
-          </ReactFlow>
+            onPaneClick={handlePaneClick}
+          />
         )}
       </div>
 
@@ -390,16 +266,12 @@ function FamilyTreeInner() {
               <span className="text-sm text-gray-600 font-medium">Connection selected</span>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedEdgeId(null)}
-                className="px-4 py-2 border border-gray-200 rounded-full text-sm text-gray-400 hover:bg-gray-50 transition-colors"
-              >
+              <button onClick={() => setSelectedEdgeId(null)}
+                className="px-4 py-2 border border-gray-200 rounded-full text-sm text-gray-400 hover:bg-gray-50 transition-colors">
                 Cancel
               </button>
-              <button
-                onClick={() => handleDeleteRelationship(selectedEdgeId)}
-                className="px-4 py-2 bg-red-500 text-white rounded-full text-sm font-semibold hover:bg-red-600 transition-colors"
-              >
+              <button onClick={() => handleDeleteRelationship(selectedEdgeId)}
+                className="px-4 py-2 bg-red-500 text-white rounded-full text-sm font-semibold hover:bg-red-600 transition-colors">
                 Delete
               </button>
             </div>
@@ -444,29 +316,12 @@ function FamilyTreeInner() {
           onConfirm={confirmConnect} onCancel={cancelConnectMode} />
       )}
 
-      {pendingEdge && pendingEdgeP1 && pendingEdgeP2 && (
-        <RelPickerModal title="Set Relationship"
-          subtitle={`${pendingEdgeP1.name}  &  ${pendingEdgeP2.name}`}
-          onConfirm={handlePendingEdgeConfirm} onCancel={() => setPendingEdge(null)} />
-      )}
-
-      {pendingDrop && !pendingDrop.relType && pendingDropSrc && (
-        <RelPickerModal title="Add New Person"
-          subtitle={`Connected from ${pendingDropSrc.name} — choose relationship`}
-          onConfirm={handleDropRelType} onCancel={() => setPendingDrop(null)} />
-      )}
-
-      {pendingDrop?.relType && (
-        <PersonForm mode="create" onSubmit={handleCreateFromDrop}
-          onCancel={() => setPendingDrop(null)} />
-      )}
-
       {panel === 'details' && selectedPerson && (
         <PersonDetails
           person={selectedPerson}
           persons={persons}
           relationships={relationships.filter(
-            r => r.person1_id === selectedPerson.id || r.person2_id === selectedPerson.id
+            r => r.person1_id === selectedPerson.id || r.person2_id === selectedPerson.id,
           )}
           onClose={() => setPanel('none')}
           onEdit={() => setPanel('form-edit')}
@@ -483,13 +338,5 @@ function FamilyTreeInner() {
         <PersonForm mode="edit" person={selectedPerson} onSubmit={handleUpdate} onCancel={() => setPanel('none')} />
       )}
     </div>
-  );
-}
-
-export default function FamilyTree() {
-  return (
-    <ReactFlowProvider>
-      <FamilyTreeInner />
-    </ReactFlowProvider>
   );
 }

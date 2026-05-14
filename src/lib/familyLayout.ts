@@ -1,14 +1,16 @@
-import { Node, Edge } from '@xyflow/react';
+import dagre from 'dagre';
 import { Person, Relationship } from '@/types';
 
-// ── Shared constants (exported for useAutoLayout) ─────────────────────────────
 export const NODE_W     = 200;
-export const NODE_H     = 150;
+export const NODE_H     = 96;
 export const MARRIAGE_W = 14;
 export const MARRIAGE_H = 14;
 
+// Width of a rendered couple (left person + gap + marriage dot + gap + right person)
+const COUPLE_W = NODE_W * 2 + MARRIAGE_W + 50;
+
 const DEFAULT_COLOR = '#22c55e';
-const EDGE_COLORS   = [
+const EDGE_COLORS = [
   '#22c55e', '#3b82f6', '#f59e0b', '#ef4444',
   '#8b5cf6', '#ec4899', '#06b6d4',
 ];
@@ -17,25 +19,64 @@ export function mId(a: string, b?: string) {
   return b ? `M_${[a, b].sort().join('_')}` : `M_${a}`;
 }
 
-// ── Main export (sync — ELK layout is applied separately by useAutoLayout) ────
+export interface LayoutNode {
+  id: string;
+  type: 'person' | 'marriage';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  data: {
+    person?: Person;
+    color?: string;
+    isSelected?: boolean;
+    isConnectSource?: boolean;
+    familyColor?: string;
+  };
+}
+
+export interface LayoutEdge {
+  id: string;
+  relId: string;
+  type: 'spouse' | 'parent_child' | 'sibling';
+  path: string;
+  color: string;
+  selected: boolean;
+}
+
+export interface LayoutResult {
+  nodes: LayoutNode[];
+  edges: LayoutEdge[];
+}
+
+function byOrder(a: Person, b: Person): number {
+  const ia = a.order_index ?? 0;
+  const ib = b.order_index ?? 0;
+  if (ia !== ib) return ib - ia;
+  const da = a.birth_date ?? '';
+  const db = b.birth_date ?? '';
+  if (!da && !db) return 0;
+  if (!da) return 1;
+  if (!db) return -1;
+  return da < db ? -1 : da > db ? 1 : 0;
+}
+
 export function buildFamilyLayout(
   persons:          Person[],
   relationships:    Relationship[],
   selectedId?:      string,
   connectSourceId?: string,
   selectedEdgeId?:  string,
-): { nodes: Node[]; edges: Edge[] } {
+): LayoutResult {
   if (persons.length === 0) return { nodes: [], edges: [] };
 
-  // Quick id → Person lookup used for order_index comparisons below
   const personById = new Map(persons.map(p => [p.id, p]));
-
-  const personSet = new Set(persons.map(p => p.id));
-  const validRels = relationships.filter(
+  const personSet  = new Set(persons.map(p => p.id));
+  const validRels  = relationships.filter(
     r => personSet.has(r.person1_id) && personSet.has(r.person2_id),
   );
 
-  // ── Adjacency maps ────────────────────────────────────────────────────────
+  // ── Adjacency maps ─────────────────────────────────────────────────────────
   const spouseOf         = new Map<string, string>();
   const childrenOf       = new Map<string, string[]>();
   const parentsOf        = new Map<string, string[]>();
@@ -55,7 +96,7 @@ export function buildFamilyLayout(
     }
   }
 
-  // ── Marriage nodes ────────────────────────────────────────────────────────
+  // ── Marriage node IDs ──────────────────────────────────────────────────────
   const marriageSet = new Set<string>();
   for (const r of validRels) {
     if (r.relationship_type !== 'SPOUSE') continue;
@@ -65,7 +106,7 @@ export function buildFamilyLayout(
     personToMarriage.set(r.person2_id, mid);
   }
 
-  // ── Color by connected component (BFS) ───────────────────────────────────
+  // ── Color by connected component (BFS) ────────────────────────────────────
   const personColor  = new Map<string, string>();
   const marriageColor = new Map<string, string>();
   const visited = new Set<string>();
@@ -101,14 +142,125 @@ export function buildFamilyLayout(
       marriageColor.set(mid, personColor.get(r.person1_id) ?? DEFAULT_COLOR);
   }
 
-  // ── Flow nodes — positions start at {0,0}; ELK applied by useAutoLayout ──
-  const flowNodes: Node[] = [];
+  // ── Detect couple units ────────────────────────────────────────────────────
+  type CoupleUnit = { unitId: string; p1: string; p2: string };
+  const coupleUnits: CoupleUnit[] = [];
+  const personInCouple = new Set<string>();
+  const spouseDone = new Set<string>();
+
+  for (const r of validRels) {
+    if (r.relationship_type !== 'SPOUSE') continue;
+    const key = [r.person1_id, r.person2_id].sort().join('|');
+    if (spouseDone.has(key)) continue;
+    spouseDone.add(key);
+
+    const mid = mId(r.person1_id, r.person2_id);
+    const oi1 = personById.get(r.person1_id)?.order_index ?? 0;
+    const oi2 = personById.get(r.person2_id)?.order_index ?? 0;
+    // Higher order_index → left (p1)
+    const p1 = oi1 >= oi2 ? r.person1_id : r.person2_id;
+    const p2 = oi1 >= oi2 ? r.person2_id : r.person1_id;
+
+    coupleUnits.push({ unitId: mid, p1, p2 });
+    personInCouple.add(r.person1_id);
+    personInCouple.add(r.person2_id);
+  }
+
+  // ── Dagre graph ────────────────────────────────────────────────────────────
+  const g = new dagre.graphlib.Graph();
+  // nodesep: horizontal gap between sibling nodes/units
+  // ranksep: vertical gap between generations
+  g.setGraph({ rankdir: 'TB', nodesep: 60, ranksep: 120, acyclicer: 'greedy', ranker: 'tight-tree' });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  // Couple units as single wide nodes (with extra margin for breathing room)
+  for (const cu of coupleUnits) {
+    g.setNode(cu.unitId, { width: COUPLE_W + 20, height: NODE_H });
+  }
+
+  // Solo persons
+  const soloPersons = persons
+    .filter(p => !personInCouple.has(p.id))
+    .sort(byOrder);
+  for (const p of soloPersons) {
+    g.setNode(p.id, { width: NODE_W + 20, height: NODE_H });
+  }
+
+  // Parent→child edges (mapped to couple units).
+  // KEY FIX: each child node gets at most ONE incoming dagre edge.
+  // Multiple parents (e.g. child of two different families) would pull
+  // the node in two directions and cause dagre to produce overlapping layouts.
+  const dagreEdgeSeen = new Set<string>();
+  const tgtHasParent  = new Set<string>(); // each target gets one layout parent
+  const rawEdges: { srcId: string; tgtId: string; childOrder: number }[] = [];
+
+  for (const r of validRels) {
+    if (r.relationship_type !== 'PARENT_CHILD') continue;
+
+    let srcId = r.person1_id;
+    let tgtId = r.person2_id;
+
+    const srcCu = coupleUnits.find(c => c.p1 === srcId || c.p2 === srcId);
+    if (srcCu) srcId = srcCu.unitId;
+
+    const tgtCu = coupleUnits.find(c => c.p1 === tgtId || c.p2 === tgtId);
+    if (tgtCu) tgtId = tgtCu.unitId;
+
+    if (srcId === tgtId) continue;
+    // Skip if this target already has a layout parent (prevents multi-parent overlap)
+    if (tgtHasParent.has(tgtId)) continue;
+    const key = `${srcId}→${tgtId}`;
+    if (dagreEdgeSeen.has(key)) continue;
+    dagreEdgeSeen.add(key);
+    tgtHasParent.add(tgtId);
+
+    const tgtPerson = personById.get(r.person2_id);
+    rawEdges.push({ srcId, tgtId, childOrder: tgtPerson?.order_index ?? 0 });
+  }
+
+  // Sort edges: within same parent, higher order_index child goes first (left)
+  rawEdges.sort((a, b) => {
+    if (a.srcId !== b.srcId) return 0;
+    return b.childOrder - a.childOrder;
+  });
+
+  for (const { srcId, tgtId } of rawEdges) {
+    g.setEdge(srcId, tgtId);
+  }
+
+  // ── Run dagre layout ───────────────────────────────────────────────────────
+  dagre.layout(g);
+
+  // ── Map positions back to individual nodes ────────────────────────────────
+  // Dagre returns CENTER coordinates; we store top-left.
+  const posMap = new Map<string, { x: number; y: number }>();
+
+  for (const nodeId of g.nodes()) {
+    const nd = g.node(nodeId);
+    if (!nd) continue;
+    const { x: cx, y: cy } = nd;
+
+    const cu = coupleUnits.find(c => c.unitId === nodeId);
+    if (cu) {
+      // Dagre node is COUPLE_W+20 wide; center the actual couple within it
+      posMap.set(cu.p1,     { x: cx - COUPLE_W / 2,              y: cy - NODE_H / 2 });
+      posMap.set(cu.p2,     { x: cx + COUPLE_W / 2 - NODE_W,     y: cy - NODE_H / 2 });
+      posMap.set(cu.unitId, { x: cx - MARRIAGE_W / 2,             y: cy - MARRIAGE_H / 2 });
+    } else {
+      // Dagre node is NODE_W+20 wide; center the actual card within it
+      posMap.set(nodeId, { x: cx - NODE_W / 2, y: cy - NODE_H / 2 });
+    }
+  }
+
+  // ── Build layout nodes ─────────────────────────────────────────────────────
+  const layoutNodes: LayoutNode[] = [];
 
   for (const p of persons) {
-    flowNodes.push({
-      id:   p.id,
-      type: 'person',
-      position: { x: 0, y: 0 },
+    const pos = posMap.get(p.id) ?? { x: 0, y: 0 };
+    layoutNodes.push({
+      id: p.id, type: 'person',
+      x: pos.x, y: pos.y,
+      width: NODE_W, height: NODE_H,
       data: {
         person:          p,
         isSelected:      p.id === selectedId,
@@ -119,100 +271,104 @@ export function buildFamilyLayout(
   }
 
   for (const mid of Array.from(marriageSet)) {
-    flowNodes.push({
-      id:   mid,
-      type: 'marriage',
-      position: { x: 0, y: 0 },
+    const pos = posMap.get(mid) ?? { x: 0, y: 0 };
+    layoutNodes.push({
+      id: mid, type: 'marriage',
+      x: pos.x, y: pos.y,
+      width: MARRIAGE_W, height: MARRIAGE_H,
       data: { color: marriageColor.get(mid) ?? DEFAULT_COLOR },
-      selectable:  false,
-      draggable:   false,
-      connectable: false,
-    } as Node);
+    });
   }
 
-  // ── Flow edges ────────────────────────────────────────────────────────────
-  const flowEdges: Edge[] = [];
+  // ── Build SVG edge paths ───────────────────────────────────────────────────
+  const layoutEdges: LayoutEdge[] = [];
   const isSel = (id: string) => id === selectedEdgeId;
 
-  // SPOUSE — within a couple, the person with the higher order_index goes on
-  // the LEFT (sourceHandle 'right' → connects rightward to the marriage node).
-  // The _p1 edge is pushed first so useAutoLayout reads persons[0] = left person.
-  const spouseDone = new Set<string>();
+  // SPOUSE edges
+  const spouseEdgeDone = new Set<string>();
   for (const r of validRels) {
     if (r.relationship_type !== 'SPOUSE') continue;
     const key = [r.person1_id, r.person2_id].sort().join('|');
-    if (spouseDone.has(key)) continue;
-    spouseDone.add(key);
+    if (spouseEdgeDone.has(key)) continue;
+    spouseEdgeDone.add(key);
 
-    const mid   = mId(r.person1_id, r.person2_id);
+    const mid = mId(r.person1_id, r.person2_id);
+    const cu  = coupleUnits.find(c => c.unitId === mid);
+    if (!cu) continue;
+
+    const p1Pos = posMap.get(cu.p1);
+    const p2Pos = posMap.get(cu.p2);
+    const mPos  = posMap.get(mid);
+    if (!p1Pos || !p2Pos || !mPos) continue;
+
     const color = personColor.get(r.person1_id) ?? DEFAULT_COLOR;
-    const s     = isSel(r.id);
+    const cy    = p1Pos.y + NODE_H / 2;
+    const mCy   = mPos.y + MARRIAGE_H / 2;
 
-    // Higher order_index → left side of the couple
-    const oi1     = personById.get(r.person1_id)?.order_index ?? 0;
-    const oi2     = personById.get(r.person2_id)?.order_index ?? 0;
-    const leftId  = oi1 >= oi2 ? r.person1_id : r.person2_id;
-    const rightId = oi1 >= oi2 ? r.person2_id : r.person1_id;
+    // p1 right → marriage left, marriage right → p2 left
+    const path = [
+      `M ${p1Pos.x + NODE_W} ${cy} L ${mPos.x} ${mCy}`,
+      `M ${mPos.x + MARRIAGE_W} ${mCy} L ${p2Pos.x} ${cy}`,
+    ].join(' ');
 
-    // _p1 = left person (right handle → marriage node to their right)
-    flowEdges.push({
-      id: `${r.id}_p1`,
-      source: leftId, sourceHandle: 'right',
-      target: mid,    targetHandle: 'left',
-      type: 'spouseEdge',
-      style: { stroke: s ? '#ef4444' : color, strokeWidth: s ? 4 : 3 },
-      data: { relId: r.id, color },
-      zIndex: s ? 10 : 1,
-    });
-    // _p2 = right person (left handle → marriage node to their left)
-    flowEdges.push({
-      id: `${r.id}_p2`,
-      source: rightId, sourceHandle: 'left',
-      target: mid,     targetHandle: 'right',
-      type: 'spouseEdge',
-      style: { stroke: s ? '#ef4444' : color, strokeWidth: s ? 4 : 3 },
-      data: { relId: r.id, color },
-      zIndex: s ? 10 : 1,
-    });
+    layoutEdges.push({ id: r.id, relId: r.id, type: 'spouse', path, color, selected: isSel(r.id) });
   }
 
-  // PARENT_CHILD
+  // PARENT_CHILD edges
   for (const r of validRels) {
     if (r.relationship_type !== 'PARENT_CHILD') continue;
+
     const color = personColor.get(r.person1_id) ?? DEFAULT_COLOR;
-    const s     = isSel(r.id);
     const mid   = personToMarriage.get(r.person1_id);
 
-    flowEdges.push({
-      id: r.id,
-      source:       mid ?? r.person1_id,
-      sourceHandle: 'bottom',
-      target:       r.person2_id,
-      targetHandle: 'top',
-      type: 'familyEdge',
-      style: { stroke: s ? '#ef4444' : color, strokeWidth: s ? 4 : 2 },
-      data: { color },
-      zIndex: s ? 10 : 0,
-    });
+    let sx: number, sy: number;
+    if (mid) {
+      const mPos = posMap.get(mid);
+      if (!mPos) continue;
+      sx = mPos.x + MARRIAGE_W / 2;
+      sy = mPos.y + MARRIAGE_H;
+    } else {
+      const pPos = posMap.get(r.person1_id);
+      if (!pPos) continue;
+      sx = pPos.x + NODE_W / 2;
+      sy = pPos.y + NODE_H;
+    }
+
+    const tgtPos = posMap.get(r.person2_id);
+    if (!tgtPos) continue;
+
+    const tx  = tgtPos.x + NODE_W / 2;
+    const ty  = tgtPos.y;
+    const midY = (sy + ty) / 2;
+
+    // Orthogonal: down → horizontal → down
+    const path = `M ${sx} ${sy} L ${sx} ${midY} L ${tx} ${midY} L ${tx} ${ty}`;
+
+    layoutEdges.push({ id: r.id, relId: r.id, type: 'parent_child', path, color, selected: isSel(r.id) });
   }
 
-  // SIBLING
+  // SIBLING edges
   for (const r of validRels) {
     if (r.relationship_type !== 'SIBLING') continue;
-    const s = isSel(r.id);
-    flowEdges.push({
-      id: r.id,
-      source: r.person1_id,
-      target: r.person2_id,
-      type: 'smoothstep',
-      style: {
-        stroke:          s ? '#ef4444' : '#60a5fa',
-        strokeWidth:     s ? 4 : 2,
-        strokeDasharray: '6 3',
-      },
-      zIndex: s ? 10 : 0,
+
+    const p1Pos = posMap.get(r.person1_id);
+    const p2Pos = posMap.get(r.person2_id);
+    if (!p1Pos || !p2Pos) continue;
+
+    const x1 = p1Pos.x + NODE_W / 2;
+    const y1 = p1Pos.y + NODE_H / 2;
+    const x2 = p2Pos.x + NODE_W / 2;
+    const y2 = p2Pos.y + NODE_H / 2;
+    const cx = (x1 + x2) / 2;
+    const cy = Math.min(y1, y2) - 40;
+
+    layoutEdges.push({
+      id: r.id, relId: r.id, type: 'sibling',
+      path: `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`,
+      color: '#60a5fa',
+      selected: isSel(r.id),
     });
   }
 
-  return { nodes: flowNodes, edges: flowEdges };
+  return { nodes: layoutNodes, edges: layoutEdges };
 }

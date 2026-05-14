@@ -19,6 +19,8 @@ model Person {
   death_date             DateTime?      @db.Date
   photo_url              String?
   additional_information String?
+  address_short          String?
+  age                    Int?
   order_index            Int?           @default(0)
   created_at             DateTime       @default(now())
   updated_at             DateTime       @updatedAt
