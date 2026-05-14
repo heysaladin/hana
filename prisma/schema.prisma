@@ -9,39 +9,85 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 model Person {
-  id                     String         @id @default(uuid())
+  id                     String    @default(uuid())
   name                   String
   nickname               String?
   honorific              String?
   gender                 String?
-  birth_date             DateTime?      @db.Date
-  is_dead                Boolean        @default(false)
-  death_date             DateTime?      @db.Date
+  birth_date             DateTime? @db.Date
+  is_dead                Boolean   @default(false)
+  death_date             DateTime? @db.Date
   photo_url              String?
   additional_information String?
+  order_index            Int?      @default(0)
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @updatedAt
   address_short          String?
   age                    Int?
-  order_index            Int?           @default(0)
-  created_at             DateTime       @default(now())
-  updated_at             DateTime       @updatedAt
-  relationships_as_p1    Relationship[] @relation("Person1Relations")
-  relationships_as_p2    Relationship[] @relation("Person2Relations")
 
   @@map("persons")
+  @@ignore
 }
 
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 model Relationship {
-  id                String           @id @default(uuid())
+  id                String           @default(uuid())
   person1_id        String
   person2_id        String
   relationship_type RelationshipType
   created_at        DateTime         @default(now())
   updated_at        DateTime         @updatedAt
-  person1           Person           @relation("Person1Relations", fields: [person1_id], references: [id], onDelete: Cascade)
-  person2           Person           @relation("Person2Relations", fields: [person2_id], references: [id], onDelete: Cascade)
 
   @@map("relationships")
+  @@ignore
+}
+
+model Board {
+  id        String   @id
+  name      String   @default("Default Board")
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  Note      Note[]
+}
+
+model Note {
+  id          String   @id
+  content     String   @default("")
+  x           Float
+  y           Float
+  color       String   @default("yellow")
+  boardId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  workingOnBy String?
+  done        Boolean  @default(false)
+  Board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+}
+
+model Post {
+  id          String    @id
+  title       String
+  platform    String    @default("INSTAGRAM")
+  caption     String
+  hashtags    String?
+  mediaPath   String?
+  scheduledAt DateTime?
+  status      String    @default("DRAFT")
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+}
+
+model Template {
+  id               String   @id
+  name             String
+  category         String
+  captionTemplate  String
+  hashtagsTemplate String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
 }
 
 enum RelationshipType {
