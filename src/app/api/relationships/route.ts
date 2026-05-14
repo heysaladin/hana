@@ -7,7 +7,8 @@ export async function GET() {
       orderBy: { created_at: 'asc' },
     });
     return NextResponse.json(relationships);
-  } catch {
+  } catch (error) {
+    console.error('[GET /api/relationships]', error);
     return NextResponse.json({ error: 'Failed to fetch relationships' }, { status: 500 });
   }
 }
@@ -23,7 +24,8 @@ export async function POST(request: NextRequest) {
       },
     });
     return NextResponse.json(relationship, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error('[POST /api/relationships]', error);
     return NextResponse.json({ error: 'Failed to create relationship' }, { status: 500 });
   }
 }
