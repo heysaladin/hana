@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
         person1_id:        body.person1_id,
         person2_id:        body.person2_id,
         relationship_type: body.relationship_type,
+        updated_at:        new Date().toISOString(),
       })
       .select()
       .single();

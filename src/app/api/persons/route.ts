@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         address_short:          body.address_short || null,
         age:                    body.age != null && body.age !== '' ? Number(body.age) : null,
         order_index:            body.order_index != null ? Number(body.order_index) : 0,
+        updated_at:             new Date().toISOString(),
       })
       .select()
       .single();
