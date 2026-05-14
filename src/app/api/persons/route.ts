@@ -44,6 +44,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     console.error('[POST /api/persons]', error);
-    return NextResponse.json({ error: 'Failed to create person' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create person', detail: String(error) }, { status: 500 });
   }
 }
