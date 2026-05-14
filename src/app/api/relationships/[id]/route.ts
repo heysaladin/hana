@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function DELETE(_: NextRequest, { params }: Ctx) {
-  const { id } = await params;
-  await prisma.relationship.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  try {
+    const { id } = await params;
+    const { error } = await supabaseAdmin()
+      .from('relationships')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[DELETE /api/relationships/[id]]', error);
+    return NextResponse.json({ error: 'Failed to delete relationship' }, { status: 500 });
+  }
 }
