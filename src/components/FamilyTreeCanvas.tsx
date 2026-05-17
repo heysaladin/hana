@@ -96,10 +96,10 @@ export default function FamilyTreeCanvas({ nodes, edges, onNodeClick, onEdgeClic
   const lastPinch   = useRef(0);
   const pinchMid    = useRef({ x: 0, y: 0 });
 
-  // Auto-fit when node count changes
+  // Auto-fit only on initial load
   const prevCount   = useRef(-1);
   useEffect(() => {
-    if (nodes.length === 0 || nodes.length === prevCount.current) return;
+    if (nodes.length === 0 || prevCount.current !== -1) return;
     prevCount.current = nodes.length;
 
     const svg = svgRef.current;

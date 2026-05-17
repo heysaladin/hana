@@ -19,6 +19,9 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   turbopack: {},
+  devIndicators: false,
+  // Allow HMR WebSocket from any local network host in dev
+  allowedDevHosts: ["all"],
   images: {
     remotePatterns: [
       {
