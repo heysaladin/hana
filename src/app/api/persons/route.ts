@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { data, error } = await supabaseAdmin()
+    const familyId = request.nextUrl.searchParams.get('family_id');
+    let query = supabaseAdmin()
       .from('persons')
       .select('*')
       .order('created_at', { ascending: true });
+    if (familyId) query = query.eq('family_id', familyId);
+    const { data, error } = await query;
     if (error) throw error;
     return NextResponse.json(data);
   } catch (error) {
@@ -36,6 +39,7 @@ export async function POST(request: NextRequest) {
         address_short:          body.address_short || null,
         age:                    body.age != null && body.age !== '' ? Number(body.age) : null,
         order_index:            body.order_index != null ? Number(body.order_index) : 0,
+        family_id:              body.family_id || null,
         updated_at:             new Date().toISOString(),
       })
       .select()

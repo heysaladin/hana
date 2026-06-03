@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const familyId = request.nextUrl.searchParams.get('family_id');
+    if (familyId) {
+      const { data: familyPersons, error: pErr } = await supabaseAdmin()
+        .from('persons')
+        .select('id')
+        .eq('family_id', familyId);
+      if (pErr) throw pErr;
+      const ids = (familyPersons ?? []).map(p => p.id);
+      if (ids.length === 0) return NextResponse.json([]);
+      const { data, error } = await supabaseAdmin()
+        .from('relationships')
+        .select('*')
+        .in('person1_id', ids)
+        .in('person2_id', ids)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return NextResponse.json(data);
+    }
     const { data, error } = await supabaseAdmin()
       .from('relationships')
       .select('*')

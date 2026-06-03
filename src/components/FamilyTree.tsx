@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { buildFamilyLayout } from '@/lib/familyLayout';
 import FamilyTreeCanvas from './FamilyTreeCanvas';
 import PersonDetails from './PersonDetails';
@@ -147,7 +148,8 @@ function LoginModal({
   );
 }
 
-export default function FamilyTree() {
+export default function FamilyTree({ familyId }: { familyId: string }) {
+  const router = useRouter();
   const [persons,       setPersons]       = useState<Person[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
@@ -193,7 +195,10 @@ export default function FamilyTree() {
   const fetchData = useCallback(async () => {
     const timeout = setTimeout(() => { setLoading(false); setLoadError(true); }, 8000);
     try {
-      const [pRes, rRes] = await Promise.all([fetch('/api/persons'), fetch('/api/relationships')]);
+      const [pRes, rRes] = await Promise.all([
+        fetch(`/api/persons?family_id=${familyId}`),
+        fetch(`/api/relationships?family_id=${familyId}`),
+      ]);
       const [pData, rData] = await Promise.all([pRes.json(), rRes.json()]);
       setPersons(Array.isArray(pData) ? pData : []);
       setRelationships(Array.isArray(rData) ? rData : []);
@@ -308,7 +313,7 @@ export default function FamilyTree() {
     const res = await fetch('/api/persons', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, family_id: familyId }),
     });
     if (res.ok) {
       const newPerson = await res.json();
@@ -380,12 +385,20 @@ export default function FamilyTree() {
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-white shadow-sm z-10 flex-shrink-0">
-        <button onClick={() => setShowSearch(v => !v)}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100">
-          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
-            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" strokeLinecap="round" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => router.push('/')}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100">
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M19 12H5M12 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button onClick={() => setShowSearch(v => !v)}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100">
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
         <h1 className="text-lg font-bold tracking-wide">HANA</h1>
 
         {/* Top-right menu */}

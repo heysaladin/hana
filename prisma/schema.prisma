@@ -9,6 +9,17 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model Family {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  persons     Person[]
+
+  @@map("families")
+}
+
 model Person {
   id                     String         @id @default(uuid())
   name                   String
@@ -23,6 +34,8 @@ model Person {
   address_short          String?
   age                    Int?
   order_index            Int?           @default(0)
+  family_id              String?
+  family                 Family?        @relation(fields: [family_id], references: [id], onDelete: SetNull)
   created_at             DateTime       @default(now())
   updated_at             DateTime       @updatedAt
   relationships_as_p1    Relationship[] @relation("Person1Relations")

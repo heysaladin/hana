@@ -2,6 +2,14 @@ export type Gender = 'MALE' | 'FEMALE';
 
 export type RelationshipType = 'PARENT_CHILD' | 'SPOUSE' | 'SIBLING';
 
+export interface Family {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Person {
   id: string;
   name: string;
@@ -16,6 +24,7 @@ export interface Person {
   address_short: string | null;
   age: number | null;
   order_index: number | null;
+  family_id: string | null;
   created_at: string;
   updated_at: string;
 }
