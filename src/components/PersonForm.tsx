@@ -114,7 +114,8 @@ export default function PersonForm({ mode, person, persons = [], onSubmit, onCan
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(submit)} className="px-6 pb-6 space-y-3">
+        <form onSubmit={handleSubmit(submit)} className="px-6 space-y-3"
+          style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
           {/* Photo */}
           <div className="flex flex-col items-center mb-4">
             <div onClick={() => fileRef.current?.click()}

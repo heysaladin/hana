@@ -50,7 +50,7 @@ export default function PersonDetails({
           </button>
         </div>
 
-        <div className="px-6 pb-6">
+        <div className="px-6" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
           {/* Photo */}
           <div className="bg-gray-100 rounded-2xl flex items-center justify-center h-52 mb-5 overflow-hidden">
             {person.photo_url ? (

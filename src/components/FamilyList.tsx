@@ -15,7 +15,8 @@ function LoginModal({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: 
   };
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
-      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl">
+      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl px-6 pt-6 shadow-2xl"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
         <h2 className="text-lg font-semibold mb-1">Login</h2>
         <p className="text-sm text-gray-400 mb-5">Enter password to manage families.</p>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -46,7 +47,8 @@ function CreateFamilyModal({ onSubmit, onCancel }: { onSubmit: (name: string, de
   useEffect(() => { inputRef.current?.focus(); }, []);
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
-      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl">
+      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl px-6 pt-6 shadow-2xl"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
         <h2 className="text-lg font-semibold mb-1">New Family</h2>
         <p className="text-sm text-gray-400 mb-5">Create a new family tree.</p>
         <div className="space-y-3 mb-4">
@@ -134,7 +136,7 @@ export default function FamilyList() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-full bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-white shadow-sm z-10 flex-shrink-0">
         <div className="w-9 h-9" />
@@ -171,7 +173,8 @@ export default function FamilyList() {
         </div>
       </header>
 
-      <div className="flex-1 px-4 py-6 max-w-lg mx-auto w-full" onClick={() => setShowMenuPopup(false)}>
+      <div className="flex-1 px-4 py-6 max-w-lg mx-auto w-full overflow-y-auto" onClick={() => setShowMenuPopup(false)}
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />

@@ -39,7 +39,8 @@ function RelPickerModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
-      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl">
+      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl px-6 pt-6 shadow-2xl"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
         <h2 className="text-lg font-semibold mb-1">{title}</h2>
         <p className="text-sm text-gray-400 mb-5">{subtitle}</p>
         <div className="space-y-2 mb-4">
@@ -73,7 +74,8 @@ function AddPickerModal({
   const options = getAddOptions(sourceName);
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
-      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl">
+      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl px-6 pt-6 shadow-2xl"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
         <h2 className="text-lg font-semibold mb-1">Add New Person</h2>
         <p className="text-sm text-gray-400 mb-5">Relation to <strong className="text-gray-700">{sourceName}</strong></p>
         <div className="space-y-2 mb-4">
@@ -121,7 +123,8 @@ function LoginModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
-      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl">
+      <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl px-6 pt-6 shadow-2xl"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
         <h2 className="text-lg font-semibold mb-1">Login</h2>
         <p className="text-sm text-gray-400 mb-5">Enter password to manage the family tree.</p>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -360,7 +363,7 @@ export default function FamilyTree({ familyId }: { familyId: string }) {
 
   if (loading || loadError) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-full flex items-center justify-center bg-gray-50">
         <div className="text-center">
           {loadError ? (
             <>
@@ -382,7 +385,7 @@ export default function FamilyTree({ familyId }: { familyId: string }) {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-white shadow-sm z-10 flex-shrink-0">
         <div className="flex items-center gap-1">
@@ -486,7 +489,8 @@ export default function FamilyTree({ familyId }: { familyId: string }) {
 
       {/* Edge selected — delete bar */}
       {isLoggedIn && selectedEdgeId && !connectMode && (
-        <div className="flex-shrink-0 bg-white border-t border-gray-100 px-4 py-3 z-10">
+        <div className="flex-shrink-0 bg-white border-t border-gray-100 px-4 pt-3 z-10"
+          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex items-center justify-between max-w-sm mx-auto">
             <div className="flex items-center gap-2">
               <div className="w-8 h-0.5 rounded-full bg-red-400" />
@@ -508,7 +512,8 @@ export default function FamilyTree({ familyId }: { familyId: string }) {
 
       {/* Bottom CTA bar — only when logged in */}
       {isLoggedIn && persons.length > 0 && !connectMode && !selectedEdgeId && (
-        <div className="flex-shrink-0 bg-white border-t border-gray-100 px-3 py-2.5 z-10">
+        <div className="flex-shrink-0 bg-white border-t border-gray-100 px-3 pt-2.5 z-10"
+          style={{ paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex flex-col gap-1.5 max-w-sm mx-auto">
             <div className="flex gap-1.5">
               <button onClick={() => selectedPerson && setPanel('details')} disabled={!selectedId}
