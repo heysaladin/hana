@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: 'HANA - Family Tree',
   description: 'Hasab wa Nasab - Your Family Tree Application',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.ico',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
